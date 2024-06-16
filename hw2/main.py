@@ -1,19 +1,21 @@
-from argparse import ArgumentParser
+import argparse
 import logging
 import os
 import subprocess
 import platform
 
-RIGHT = 1491
+RIGHT_BORDER = 1491
+ADD_VAL = 28
 
-def get_command(sys_name : str) -> list:
-    if sys_name == 'darwin':
-        return ["ping", host, "-c", "1", "-s", str(mtu), "-M", "do"]
-    return ["ping", "-D", "-s", str(mtu), host, "-c", "1", "-W", "3000"]
 
-def ping(mtu, host, count):
+def get_cmd(platform : str, mtu : int, host: str, count : int) -> list:
+    if platform == 'darwin':
+        return ["ping", "-D", "-s", str(mtu), host, "-c", str(count), "-W", "3000"]
+    return ["ping", host, "-c", str(count), "-s", str(mtu), "-M", "do"]
+
+def ping(mtu : int, host : str, count : int):
     print(mtu, host, count)
-    cmd = get_command(platform.system().lower() != 'darwin')
+    cmd = get_cmd(platform.system().lower(), mtu, host, count)
     print(cmd)
     res = subprocess.run(
         cmd,
@@ -24,15 +26,14 @@ def ping(mtu, host, count):
 
     if res.returncode == 2:
         exit(2)
-    
     return int(res.returncode != 0), "", res.stderr
 
 
-def worker(ping_count: int, verb_mode: str, host: str) -> None:
+def worker(ping_count: int,  verb_mode: str, host: str) -> None:
     res = process(ping_count, verb_mode, host)
     print("ANSWER =", res)
 
-def bin_search(l : int, r : int, cnt : int) -> int:
+def perfrom_binsearch(host : str, cnt : int, l : int = 0, r : int= RIGHT_BORDER) -> int:
     while l < r - 1:
         m = (l + r) // 2
         res = ping(m, host, cnt)
@@ -44,7 +45,8 @@ def bin_search(l : int, r : int, cnt : int) -> int:
             l = m
             continue
         logging.error(err)
-    return l + 28
+    return l + ADD_VAL
+
 
 def process(ping_count: int, verb_mode: str, host: str) -> int:
     cnt = int(ping_count)
@@ -64,20 +66,20 @@ def process(ping_count: int, verb_mode: str, host: str) -> int:
     if disabled.stdout == 1:
         print('ICMP is disabled. Enable it')
         exit(1)
+    return perfrom_binsearch(host, cnt)
+    
 
-    return bin_search(0, 1491, cnt)
 
-
-parser = ArgumentParser(description='PMTUD')
-parser.add_argument('-count_ping', default=1, help='count of pings')
-parser.add_argument('-verb_mode', default=0, help='verbose mod')
+parser = argparse.ArgumentParser(description='PMTUD')
+parser.add_argument('-cnt', default=1, help='count of pings')
+parser.add_argument('-verbose', default=0, help='verbose mod')
 parser.add_argument('host', help='host')
 
 args = parser.parse_args()
 
 host = args.host
-count = args.count_ping
-verbose = args.verb_mode
+count = args.cnt
+verbose = args.verbose
 
 if __name__ == "__main__":
     worker(ping_count=count, verb_mode=verbose, host=host)
